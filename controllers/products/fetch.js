@@ -2,12 +2,14 @@ import axios from "axios";
 import dotenv from "dotenv";
 import MetaController from "../../controllers/metacontroller/MetaController.js";
 
-dotenv.config(); // Load environment variables
+dotenv.config();
 
 const API_URL = "https://4bz4tg-qg.myshopify.com/api/2024-10/graphql.json";
 const API_TOKEN = process.env.SHOPIFY_API_TOKEN;
 
 export const fetchAllProducts = async (req, res) => {
+  const { limit = 50, cursor = null } = req.query;
+
   const query = `
     query ($first: Int!, $after: String) {
       products(first: $first, after: $after) {
@@ -85,56 +87,52 @@ export const fetchAllProducts = async (req, res) => {
     }
   `;
 
-  let allProducts = [];
-  let hasNextPage = true;
-  let endCursor = null;
-
   try {
-    while (hasNextPage) {
-      const variables = { first: 250, after: endCursor };
+    const variables = { first: parseInt(limit), after: cursor };
 
-      const response = await axios.post(
-        API_URL,
-        { query, variables },
-        {
-          headers: {
-            "Content-Type": "application/json",
-            "X-Shopify-Storefront-Access-Token": API_TOKEN,
-          },
-        }
-      );
+    const response = await axios.post(
+      API_URL,
+      { query, variables },
+      {
+        headers: {
+          "Content-Type": "application/json",
+          "X-Shopify-Storefront-Access-Token": API_TOKEN,
+        },
+      }
+    );
 
-      const { products } = response.data.data;
+    const { products } = response.data.data;
 
-      // Process Products
-      const processedProducts = products.edges.map((edge) => {
-        const product = edge.node;
+    // Process Products
+    const processedProducts = products.edges.map((edge) => {
+      const product = edge.node;
+      const metafields = product.metafields
+        ? product.metafields
+            .filter((mf) => mf !== null)
+            .map((mf) => ({
+              key: mf.key,
+              value: mf.value,
+              namespace: mf.namespace,
+              type: mf.type,
+              description: mf.description,
+            }))
+        : [];
 
-        // Map metafields safely
-        const metafields = product.metafields
-          ? product.metafields
-              .filter((mf) => mf !== null)
-              .map((mf) => ({
-                key: mf.key,
-                value: mf.value,
-                namespace: mf.namespace,
-                type: mf.type,
-                description: mf.description,
-              }))
-          : [];
+      return { ...product, metafields };
+    });
 
-        return { ...product, metafields };
-      });
+    const metaAllProduct=await MetaController(processedProducts)
 
-      // Store products
-      allProducts = [...allProducts, ...processedProducts];
-
-      // Update pagination variables
-      hasNextPage = products.pageInfo.hasNextPage;
-      endCursor = products.pageInfo.endCursor;
-    }
-    const metaAllProduct=await MetaController(allProducts)
-    res.json({ success: true, products: metaAllProduct });
+    // Send response
+    // In your backend response, align with frontend expectations
+    res.json({
+      success: true,
+      products: metaAllProduct,
+      pagination: {
+        hasNextPage: products.pageInfo.hasNextPage,
+        nextCursor: products.pageInfo.endCursor,
+      },
+    });
   } catch (error) {
     console.error("Error fetching Shopify products:", error.message);
     res.status(500).json({ success: false, message: error.message });
