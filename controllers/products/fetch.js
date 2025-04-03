@@ -98,33 +98,48 @@ export const fetchAllProducts = async (req, res) => {
   `;
 
   try {
-    // Build the query filter string
+    const buildFilterString = (key, values) => {
+      if (!values) return null;
+      const valueArray = Array.isArray(values) ? values : [values]; // Ensure it's an array
+      return valueArray.length > 1
+        ? `(${valueArray.map((val) => `${key}:${val}`).join(" OR ")})`
+        : `${key}:${valueArray[0]}`;
+    };
+    
+    // Apply filters
     const filters = [];
     
     // Price filters
     if (minPrice) filters.push(`variants.price:>=${minPrice}`);
     if (maxPrice) filters.push(`variants.price:<=${maxPrice}`);
     
-    // Gender filter (using metafield)
-    if (gender) filters.push(`metafield:shopify.target-gender:${gender}`);
+    // Gender filter
+    const genderFilter = buildFilterString("metafield:shopify.target-gender", gender);
+    if (genderFilter) filters.push(genderFilter);
     
-    // Frame color filter (using metafield)
-    if (frameColor) filters.push(`metafield:shopify.eyewear-frame-color:${frameColor}`);
+    // Frame color filter
+    const frameColorFilter = buildFilterString("metafield:shopify.eyewear-frame-color", frameColor);
+    if (frameColorFilter) filters.push(frameColorFilter);
     
-    // Brand filter (using metafield)
-    if (brand) filters.push(`metafield:custom.brand:${brand}`);
+    // Brand filter
+    const brandFilter = buildFilterString("metafield:custom.brand", brand);
+    if (brandFilter) filters.push(brandFilter);
     
     // Availability filter
-    if (available === 'true') filters.push(`variants.available_for_sale:true`);
+    if (available === "true") filters.push("variants.available_for_sale:true");
     
     // Category/ProductType filter
-    if (category) filters.push(`product_type:${category}`);
-
+    const categoryFilter = buildFilterString("product_type", category);
+    if (categoryFilter) filters.push(categoryFilter);
+    
+    // Final query string
+    const queryString = filters.length > 0 ? filters.join(" AND ") : null;
+    
     const variables = { 
       first: parseInt(limit), 
       after: cursor,
-      query: filters.join(' AND ') || null
-    };
+      query: queryString
+    };    
 
     const response = await axios.post(
       API_URL,
