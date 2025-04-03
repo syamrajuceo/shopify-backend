@@ -8,11 +8,21 @@ const API_URL = "https://4bz4tg-qg.myshopify.com/api/2024-10/graphql.json";
 const API_TOKEN = process.env.SHOPIFY_API_TOKEN;
 
 export const fetchAllProducts = async (req, res) => {
-  const { limit = 50, cursor = null } = req.query;
+  const { 
+    limit = 50, 
+    cursor = null, 
+    minPrice,
+    maxPrice ,
+    gender,
+    frameColor,
+    brand ,
+    available,
+    category
+  } = req.query;
 
   const query = `
-    query ($first: Int!, $after: String) {
-      products(first: $first, after: $after) {
+    query ($first: Int!, $after: String, $query: String) {
+      products(first: $first, after: $after, query: $query) {
         pageInfo {
           hasNextPage
           endCursor
@@ -88,7 +98,33 @@ export const fetchAllProducts = async (req, res) => {
   `;
 
   try {
-    const variables = { first: parseInt(limit), after: cursor };
+    // Build the query filter string
+    const filters = [];
+    
+    // Price filters
+    if (minPrice) filters.push(`variants.price:>=${minPrice}`);
+    if (maxPrice) filters.push(`variants.price:<=${maxPrice}`);
+    
+    // Gender filter (using metafield)
+    if (gender) filters.push(`metafield:shopify.target-gender:${gender}`);
+    
+    // Frame color filter (using metafield)
+    if (frameColor) filters.push(`metafield:shopify.eyewear-frame-color:${frameColor}`);
+    
+    // Brand filter (using metafield)
+    if (brand) filters.push(`metafield:custom.brand:${brand}`);
+    
+    // Availability filter
+    if (available === 'true') filters.push(`variants.available_for_sale:true`);
+    
+    // Category/ProductType filter
+    if (category) filters.push(`product_type:${category}`);
+
+    const variables = { 
+      first: parseInt(limit), 
+      after: cursor,
+      query: filters.join(' AND ') || null
+    };
 
     const response = await axios.post(
       API_URL,
@@ -121,10 +157,9 @@ export const fetchAllProducts = async (req, res) => {
       return { ...product, metafields };
     });
 
-    const metaAllProduct=await MetaController(processedProducts)
+    const metaAllProduct = await MetaController(processedProducts);
 
     // Send response
-    // In your backend response, align with frontend expectations
     res.json({
       success: true,
       products: metaAllProduct,
