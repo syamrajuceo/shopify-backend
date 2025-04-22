@@ -8,10 +8,13 @@ import orderRouter from "./routes/orderRoutes.js";
 import cartRouter from "./routes/cartRoutes.js";
 import productsRouter from "./routes/productRoutes.js";
 
-
 const app = express();
 app.use(express.json());
-app.use(cors());
+// Use CORS with specific origin
+app.use(cors({
+  origin: 'http://localhost:5173',
+  credentials: true,
+}));
 dotenv.config();
 
 const port = process.env.PORT || 3000;
