@@ -1,7 +1,7 @@
 import axios from "axios";
 import dotenv from "dotenv";
 
-dotenv.config(); // Load environment variables
+dotenv.config();
 
 const API_URL = "https://4bz4tg-qg.myshopify.com/api/2024-10/graphql.json";
 const API_TOKEN = process.env.SHOPIFY_API_TOKEN;
@@ -11,55 +11,47 @@ if (!API_TOKEN) {
 }
 
 const getMetaIds = (AllProducts) => {
-    if (!Array.isArray(AllProducts)) return []; // Ensure AllProducts is an array
+    if (!Array.isArray(AllProducts)) return [];
 
     const metafieldIds = new Set(
         AllProducts.flatMap((productObj) => {
-            if (!Array.isArray(productObj?.metafields)) return []; // Ensure metafields is an array
+            if (!Array.isArray(productObj?.metafields)) return [];
 
             return productObj.metafields.flatMap((metafield) => {
                 let metaValues = metafield?.value;
 
-                // Case 1: If already an array, return as-is
                 if (Array.isArray(metaValues)) {
                     return metaValues;
                 }
 
-                // Case 2: If it's a string, try to parse it as JSON
                 if (typeof metaValues === "string") {
                     try {
                         const parsedValue = JSON.parse(metaValues);
-                        return Array.isArray(parsedValue) ? parsedValue : [parsedValue]; // Ensure array format
+                        return Array.isArray(parsedValue) ? parsedValue : [parsedValue];
                     } catch (error) {
-                        // console.error("Error parsing metafield value:", metaValues);
-                        return []; // Skip invalid JSON values
+                        return [];
                     }
                 }
 
-                // Case 3: If it's an object, extract values
                 if (typeof metaValues === "object" && metaValues !== null) {
                     return Object.values(metaValues);
                 }
 
-                // Case 4: If it's a primitive value (string, number), wrap in array
                 return metaValues ? [metaValues] : [];
             });
         })
     );
 
-    return [...metafieldIds];
+    return [...metafieldIds].filter(id => id && typeof id === "string");
 };
 
 const metaQueryGenerator = (metafieldIds) => {
-    if (!Array.isArray(metafieldIds) || metafieldIds.length === 0) {
-        return { query: "query GetMetaobjects { }" }; // Empty query to avoid errors
-    }
-
-    // Filter out invalid IDs
-    const validMetafieldIds = metafieldIds.filter(id => typeof id === "string" && id.startsWith("gid://shopify/Metaobject/"));
+    const validMetafieldIds = metafieldIds.filter(id => 
+        typeof id === "string" && id.startsWith("gid://shopify/Metaobject/")
+    );
 
     if (validMetafieldIds.length === 0) {
-        return { query: "query GetMetaobjects { }" }; // Avoid malformed queries
+        return { query: "query GetMetaobjects { }" };
     }
 
     const query = validMetafieldIds.map((metaId, index) => 
@@ -72,10 +64,10 @@ const metaQueryGenerator = (metafieldIds) => {
 };
 
 const transformMetaObjects = (metaObjects) => {
-    if (!metaObjects || typeof metaObjects !== "object") return []; // Ensure it's an object
+    if (!metaObjects || typeof metaObjects !== "object") return [];
 
     return Object.values(metaObjects)
-        .filter(obj => obj?.id && obj?.handle) // Ensure valid id & handle
+        .filter(obj => obj?.id && obj?.handle)
         .map(({ id, handle }) => ({ id, handle }));
 };
 
@@ -88,22 +80,20 @@ const MetaResultIdValue = async (query) => {
             },
         });
 
-        if (!response.data || !response.data.data) {
-            console.error("Error: Empty response from Shopify API", response.data);
+        if (!response.data?.data) {
+            console.error("Empty response from Shopify API");
             return [];
         }
         return transformMetaObjects(response.data.data);
     } catch (error) {
         console.error("Error fetching metaobjects:", error.response?.data || error.message);
-        return []; // Return an empty array to prevent undefined errors
+        return [];
     }
 };
 
 const GetMetaHandler = (metaResult, id) => {
     if (!Array.isArray(metaResult) || !id) return null;
-
-    const foundMeta = metaResult.find(metaObject => metaObject.id === id);
-    return foundMeta ? foundMeta.handle : null;
+    return metaResult.find(metaObject => metaObject.id === id)?.handle || null;
 };
 
 export { getMetaIds, metaQueryGenerator, MetaResultIdValue, GetMetaHandler };
