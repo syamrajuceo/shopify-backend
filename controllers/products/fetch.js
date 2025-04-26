@@ -36,19 +36,32 @@ const applyClientSideFilters = (products, filters) => {
 
     // Color filter
     if (filters.color) {
-      const colorMetafield = product.metafields?.find(
-        (mf) => mf.key === "eyewear-frame-color"
+      const colorFields = ["eyewear-frame-color", "lens-color", "temple-color"];
+
+      // Get all color metafields that exist for this product
+      const colorMetafields = product.metafields?.filter(
+        (mf) => mf && colorFields.includes(mf.key)
       );
-      if (!colorMetafield) return false;
+
+      // If no color metafields found at all, exclude the product
+      if (!colorMetafields || colorMetafields.length === 0) return false;
 
       const colorValues = Array.isArray(filters.color)
         ? filters.color
         : [filters.color];
-      const metavalues = Array.isArray(colorMetafield.metavalue)
-        ? colorMetafield.metavalue.map((v) => v?.handle)
-        : [colorMetafield.metavalue?.handle];
 
-      if (!metavalues.some((val) => colorValues.includes(val))) return false;
+      // Check if any of the color metafields match the filter
+      const hasMatchingColor = colorMetafields.some((metafield) => {
+        // Extract values from metafield
+        const metavalues = Array.isArray(metafield.metavalue)
+          ? metafield.metavalue.map((v) => v?.handle)
+          : [metafield.metavalue?.handle];
+
+        // Check if any metavalue matches filter colors
+        return metavalues.some((val) => val && colorValues.includes(val));
+      });
+
+      if (!hasMatchingColor) return false;
     }
 
     return true;
@@ -68,6 +81,8 @@ export const fetchAllProducts = async (req, res) => {
     category,
     shape,
   } = req.query;
+
+  console.log("query : ", req.query);
 
   const query = `
         query ($first: Int!, $after: String, $query: String) {
@@ -101,6 +116,7 @@ export const fetchAllProducts = async (req, res) => {
                                         currencyCode
                                     }
                                     availableForSale
+                                    quantityAvailable
                                     sku
                                     selectedOptions {
                                         name

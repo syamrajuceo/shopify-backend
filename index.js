@@ -7,6 +7,7 @@ import reviewRouter from "./routes/reviewRoutes.js";
 import orderRouter from "./routes/orderRoutes.js";
 import cartRouter from "./routes/cartRoutes.js";
 import productsRouter from "./routes/productRoutes.js";
+import { handleOrderWebhook, verifyWebhook } from "./controllers/webhook/webhookController.js";
 
 const app = express();
 app.use(express.json());
@@ -24,6 +25,7 @@ app.use("/api/reviews", reviewRouter);
 app.use("/api/orders", orderRouter)
 app.use("/api/cart", cartRouter)
 app.use("/api/products", productsRouter)
+app.post('/api/webhooks/orders', verifyWebhook, handleOrderWebhook);
 
 
 dbConnection()
