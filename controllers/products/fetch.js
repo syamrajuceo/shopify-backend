@@ -4,8 +4,8 @@ import MetaController from "../../controllers/metacontroller/MetaController.js";
 
 dotenv.config(); // Load environment variables
 
-const API_URL = "https://4bz4tg-qg.myshopify.com/api/2024-10/graphql.json";
-const API_TOKEN = process.env.SHOPIFY_API_TOKEN;
+const API_URL = "https://4bz4tg-qg.myshopify.com/api/2025-04/graphql.json";
+const API_TOKEN = process.env.API_TOKEN || "80a45abbc99fa8d887c693c5aae5996e";
 
 export const fetchAllProducts = async (req, res) => {
   const query = `
